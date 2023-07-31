@@ -26,21 +26,17 @@ xbasis = d3.RealFourier(coords['x'], size=Nx, bounds=(0, Lx), dealias=dealias)
 ybasis = d3.RealFourier(coords['y'], size=Ny, bounds=(0, Ly), dealias=dealias)
 
 # Fields
-p = dist.Field(name='p', bases=(xbasis,ybasis))
-b = dist.Field(name='b', bases=(xbasis,ybasis))
-u = dist.VectorField(coords, name='u', bases=(xbasis,ybasis))
-tau_p = dist.Field(name='tau_p')
-tau_b1 = dist.Field(name='tau_b1', bases=xbasis)
-tau_b2 = dist.Field(name='tau_b2', bases=xbasis)
-tau_u1 = dist.VectorField(coords, name='tau_u1', bases=xbasis)
-tau_u2 = dist.VectorField(coords, name='tau_u2', bases=xbasis)
+psi = dist.Field(name='psi', bases=(xbasis,ybasis))
+vx = dist.Field(name='vx', bases=(xbasis,ybasis))
+vy = dist.Field(name='vy', bases=(xbasis,ybasis))
+q = dist.Field(name='q', bases=(xbasis,ybasis))
 
 # Substitutions
 
 # Problem
 # First-order form: "div(f)" becomes "trace(grad_f)"
 # First-order form: "lap(f)" becomes "div(grad_f)"
-problem = d3.IVP(['psi', 'vx', 'vy', 'q'])
+problem = d3.IVP(['psi', 'vx', 'vy', 'q'], namespace=locals())
 problem.parameters['Bt'] = Beta
 problem.parameters['Mu'] = Viscosity
 problem.parameters['Al'] = Friction
