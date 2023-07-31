@@ -10,9 +10,9 @@ logger = logging.getLogger(__name__)
 # Parameters
 Lx, Ly = (2*np.pi, 2*np.pi)
 Nx, Ny = (256, 256)
-Beta = 8.0
-Viscosity = 1.5e-8
-Friction = 1.2e-3
+Bt = 8.0
+Mu = 1.5e-8
+Al = 1.2e-3
 dealias = 3/2
 stop_sim_time = 50
 timestepper = d3.RK222
@@ -36,13 +36,7 @@ q = dist.Field(name='q', bases=(xbasis,ybasis))
 # Problem
 # First-order form: "div(f)" becomes "trace(grad_f)"
 # First-order form: "lap(f)" becomes "div(grad_f)"
-problem = d3.IVP(['psi', 'vx', 'vy', 'q'], namespace=locals())
-problem.parameters['Bt'] = Beta
-problem.parameters['Mu'] = Viscosity
-problem.parameters['Al'] = Friction
-problem.parameters['Sq2Al'] = np.sqrt(2.0*Friction)
-problem.parameters['Ly'] = Ly
-problem.parameters['Lx'] = Lx
+problem = d3.IVP([psi, vx, vy, q], namespace=locals())
 problem.substitutions['Lap(A)'] = "dx(dx(A)) + dy(dy(A))"
 problem.add_equation("dt(q) + Mu*Lap(Lap(q)) + Al*q - Bt*dy(psi) = -(vx*dx(q) + vy*dy(q))")
 problem.add_equation("q - Lap(psi) = 0", condition="(nx!=0) or (ny!=0)")
