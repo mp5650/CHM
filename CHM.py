@@ -37,7 +37,6 @@ q = dist.Field(name='q', bases=(xbasis,ybasis))
 # First-order form: "div(f)" becomes "trace(grad_f)"
 # First-order form: "lap(f)" becomes "div(grad_f)"
 problem = d3.IVP([psi, vx, vy, q], namespace=locals())
-problem.substitutions['Lap(A)'] = "dx(dx(A)) + dy(dy(A))"
 problem.add_equation("dt(q) + Mu*Lap(Lap(q)) + Al*q - Bt*dy(psi) = -(vx*dx(q) + vy*dy(q))")
 problem.add_equation("q - Lap(psi) = 0", condition="(nx!=0) or (ny!=0)")
 problem.add_equation("psi = 0", condition="(nx==0) and (ny==0)")
