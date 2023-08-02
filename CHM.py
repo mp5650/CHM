@@ -29,24 +29,22 @@ ybasis = d3.RealFourier(coords['y'], size=Ny, bounds=(0, Ly), dealias=dealias)
 x = dist.Field(bases=xbasis)
 y = dist.Field(bases=ybasis)
 psi = dist.Field(name='psi', bases=(xbasis,ybasis))
-vx = dist.Field(name='vx', bases=(xbasis,ybasis))
-vy = dist.Field(name='vy', bases=(xbasis,ybasis))
+v = dist.VectorField(coords, name='v', bases=(xbasis,ybasis))
 q = dist.Field(name='q', bases=(xbasis,ybasis))
+tau_psi = dist.Field(name='tau_psi')
 
 # Substitutions
 dx = lambda A: d3.Differentiate(A, coords['x'])
 dy = lambda A: d3.Differentiate(A, coords['y'])
-lift_basis = zbasis.derivative_basis(1)
-lift = lambda A: d3.Lift(A, lift_basis, -1)
 # Problem
 # First-order form: "div(f)" becomes "trace(grad_f)"
 # First-order form: "lap(f)" becomes "div(grad_f)"
-problem = d3.IVP([psi, vx, vy, q], namespace=locals())
-problem.add_equation("dt(q) + Mu*lap(lap(q)) + Al*q - Bt*dy(psi) = -(vx*dx(q) + vy*dy(q))")
-problem.add_equation("q - lap(psi) = 0", condition="(nx!=0) or (ny!=0)")
-problem.add_equation("psi = 0", condition="(nx==0) and (ny==0)")
-problem.add_equation("vy - dx(psi) = 0")
-problem.add_equation("vx + dy(psi) = 0")
+problem = d3.IVP([psi, v, q, tau_psi], namespace=locals())
+problem.add_equation("dt(q) + Mu*lap(lap(q)) + Al*q - Bt*dy(psi) = - v@grad(q)")
+problem.add_equation("q - lap(psi) + tau_psi = 0")
+problem.add_equation("integ(psi) = 0")
+problem.add_equation("v = skew(grad(psi))")
+
 # Solver
 solver = problem.build_solver(timestepper)
 solver.stop_sim_time = stop_sim_time
@@ -54,13 +52,13 @@ solver.stop_sim_time = stop_sim_time
 
 # Initial conditions
 if not pathlib.Path('restart.h5').exists():
-    q = solver.state['q']
+
     #ff = forcing(1.0)
     q['c'] = np.sin(3)
     # For above, need to replace initial condition to be a choice of mode rather than forcing function
 
     # Timestepping and output
-    dt = timestep
+    dt = timestepper
     stop_sim_time = 3600.1
     fh_mode = 'overwrite'
 
@@ -80,11 +78,6 @@ else:
         logger.info("Loading sim time: {}".format(solver.sim_time))
         logger.info("Loading timestep: {}".format(last_dt))
 
-        q = solver.state['q']
-        psi = solver.state['psi']
-        vx = solver.state['vx']
-        vy = solver.state['vy']
-
         last_q = f['tasks']['q'][-1,:,:]
         # Note: I'm not really sure what the conventions for the DFT used in dedalus are, so I use numpy instead
 
@@ -98,20 +91,20 @@ else:
 
         last_qfft = np.fft.rfft2(last_q)
         last_psifft = invlap_np*last_qfft
-        last_vxfft = 1j*np_kyg*last_psifft
-        last_vyfft = -1j*np_kxg*last_psifft
+        last_vfft = 1j*np_kyg*last_psifft
+
 
         last_psi = np.fft.irfft2(last_psifft)
-        last_vx = np.fft.irfft2(last_vxfft)
-        last_vy = np.fft.irfft2(last_vyfft)
+        last_v = np.fft.irfft2(last_vfft)
+
 
         gshape = domain.dist.grid_layout.local_shape(scales=1)
         gslice = domain.dist.grid_layout.slices(scales=1)
 
         q['g'] = last_q[gslice]
         psi['g'] = last_psi[gslice]
-        vx['g'] = last_vx[gslice]
-        vy['g'] = last_vy[gslice]
+        v['g'] = last_v[gslice]
+
 
 
     # Timestepping and output
@@ -122,21 +115,19 @@ else:
 # Integration parameters
 solver.stop_sim_time = stop_sim_time
 # Analysis
-fh_fixer = solver.evaluator.add_file_handler('fh_fixer', sim_dt=10000.0, max_writes=10, mode=fh_mode)
-fh_fixer.add_system(solver.state)
-snapshots = solver.evaluator.add_file_handler('snapshots', sim_dt=snapshotStep, max_writes=8, mode=fh_mode)
-snapshots.add_task('q', layout='g', name='q')
+snapshots = solver.evaluator.add_file_handler('snapshots', sim_dt=0.25, max_writes=50)
+snapshots.add_task(q, name='q')
 
 # CFL
 CFL = d3.CFL(solver, initial_dt=dt, cadence=10, safety=1.0,
                      max_change=1.5, min_change=0.1, max_dt=max_timestep, threshold=0.05)
-CFL.add_velocities(('vx', 'vy'))
+CFL.add_velocity(v)
 
 # Flow properties
 output_cadence = 10
 
 flow = d3.GlobalFlowProperty(solver, cadence=output_cadence)
-flow.add_property("vx*vx + vy*vy", name='Energy')
+flow.add_property("v@v", name='Energy')
 flow.add_property("q*q", name='Enstrophy')
 curr_time = time.time()
 
