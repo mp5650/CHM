@@ -26,19 +26,24 @@ xbasis = d3.RealFourier(coords['x'], size=Nx, bounds=(0, Lx), dealias=dealias)
 ybasis = d3.RealFourier(coords['y'], size=Ny, bounds=(0, Ly), dealias=dealias)
 
 # Fields
+x = dist.Field(bases=xbasis)
+y = dist.Field(bases=ybasis)
 psi = dist.Field(name='psi', bases=(xbasis,ybasis))
 vx = dist.Field(name='vx', bases=(xbasis,ybasis))
 vy = dist.Field(name='vy', bases=(xbasis,ybasis))
 q = dist.Field(name='q', bases=(xbasis,ybasis))
 
 # Substitutions
-
+dx = lambda A: d3.Differentiate(A, coords['x'])
+dy = lambda A: d3.Differentiate(A, coords['y'])
+lift_basis = zbasis.derivative_basis(1)
+lift = lambda A: d3.Lift(A, lift_basis, -1)
 # Problem
 # First-order form: "div(f)" becomes "trace(grad_f)"
 # First-order form: "lap(f)" becomes "div(grad_f)"
 problem = d3.IVP([psi, vx, vy, q], namespace=locals())
-problem.add_equation("dt(q) + Mu*Lap(Lap(q)) + Al*q - Bt*dy(psi) = -(vx*dx(q) + vy*dy(q))")
-problem.add_equation("q - Lap(psi) = 0", condition="(nx!=0) or (ny!=0)")
+problem.add_equation("dt(q) + Mu*lap(lap(q)) + Al*q - Bt*dy(psi) = -(vx*dx(q) + vy*dy(q))")
+problem.add_equation("q - lap(psi) = 0", condition="(nx!=0) or (ny!=0)")
 problem.add_equation("psi = 0", condition="(nx==0) and (ny==0)")
 problem.add_equation("vy - dx(psi) = 0")
 problem.add_equation("vx + dy(psi) = 0")
