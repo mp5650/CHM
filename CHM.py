@@ -134,37 +134,15 @@ curr_time = time.time()
 # Main loop
 startup_iter = 10
 try:
-    logger.info('Starting loop')
-    start_time = time.time()
-    start_iter = solver.iteration
-    curr_iter = solver.iteration
-
+    logger.info('Starting main loop')
     while solver.proceed:
-        if solver.iteration - start_iter > 10:
-            dt = CFL.compute_dt()
-
-        forcing_func.args = [dt]
-        dt = solver.step(dt)
-        if (solver.iteration-2) % output_cadence == 0:
-            next_time = time.time()
-            logger.info('Iteration: %i, Time: %e, dt: %e' %(solver.iteration, solver.sim_time, dt))
-            logger.info('Average timestep (ms): %f' % ((next_time-curr_time) * 1000.0 / (solver.iteration - curr_iter)))
-            logger.info('Max v^2 = %f' % flow.max('Energy'))
-            logger.info('Average v^2 = %f' % flow.volume_average('Energy'))
-            logger.info('Max q^2 = %f' % flow.max('Enstrophy'))
-            curr_time = next_time
-            curr_iter = solver.iteration
-            if solver.iteration - start_iter > 100:
-                output_cadence = 100
-            if not np.isfinite(flow.max('Enstrophy')):
-                raise Exception('NaN encountered')
+        timestep = CFL.compute_timestep()
+        solver.step(timestep)
+        if (solver.iteration-1) % 10 == 0:
+            max_q2 = flow.max('Enstrophy')
+            logger.info('Iteration=%i, Time=%e, dt=%e, max(q^2)=%f' %(solver.iteration, solver.sim_time, timestep, max_Re))
 except:
     logger.error('Exception raised, triggering end of main loop.')
     raise
 finally:
-    end_time = time.time()
-    logger.info('Iterations: %i' %solver.iteration)
-    logger.info('Sim end time: %f' %solver.sim_time)
-    logger.info('Run time: %.2f sec' %(end_time-start_time))
-    logger.info('Run time: %f cpu-hr' %((end_time-start_time)/60/60*domain.dist.comm_cart.size))
-
+    solver.log_stats()
